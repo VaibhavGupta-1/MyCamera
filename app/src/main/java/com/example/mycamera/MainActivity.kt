@@ -19,8 +19,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             MyCameraTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) {
-
+                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+                    permission()
                 }
             }
         }
