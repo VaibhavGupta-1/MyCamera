@@ -59,7 +59,6 @@ fun permission() {
         onResult = {
             permission->
             isGranted.value=permission[android.Manifest.permission.CAMERA]==true
-
         }
     )
 
