@@ -46,14 +46,12 @@ import kotlin.coroutines.suspendCoroutine
 fun permission() {
     val permission=listOf(
         android.Manifest.permission.CAMERA,
+        android.Manifest.permission.RECORD_AUDIO
     )
     val isGranted=remember {
         mutableStateOf(false)
     }
-
     val context= LocalContext.current
-
-
     val launcher= rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
         onResult = {
@@ -61,9 +59,6 @@ fun permission() {
             isGranted.value=permission[android.Manifest.permission.CAMERA]==true
         }
     )
-    
-
-
     if(isGranted.value){
         cameraScreen()
     }else{
@@ -82,44 +77,33 @@ fun permission() {
         }
     }
 }
-
-
-
 @Composable
 fun cameraScreen() {
-
     val context= LocalContext.current
     val lifecycleOwner= LocalLifecycleOwner.current
     val previewView: PreviewView = remember {
         PreviewView(context)
     }
-
     val cameraSelector= CameraSelector.DEFAULT_BACK_CAMERA
-
     val preview= Preview.Builder().build()
     val imageCapture= remember {
         ImageCapture.Builder().build()
     }
-
     LaunchedEffect(Unit) {
         val cameraProvider=context.getCameraProvider()
-
         cameraProvider.unbindAll()
         cameraProvider.bindToLifecycle(
             lifecycleOwner=lifecycleOwner,
             cameraSelector=cameraSelector,
             preview,
             imageCapture
-
         )
         preview.setSurfaceProvider(previewView.surfaceProvider)
     }
-
     Box(modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.BottomCenter
     ){
         AndroidView(factory = { previewView } , modifier = Modifier.fillMaxSize())
-
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -128,7 +112,6 @@ fun cameraScreen() {
 
             contentAlignment = Alignment.Center
         ){
-
             IconButton(
                 onClick = {
                     captuePhoto(imageCapture,context)
@@ -141,36 +124,25 @@ fun cameraScreen() {
             ) { }
         }
     }
-
-
-
 }
-
 private suspend fun Context.getCameraProvider(): ProcessCameraProvider= suspendCoroutine {continuation->
-
     val cameraProviderFeature= ProcessCameraProvider.getInstance(this)
-
     cameraProviderFeature.addListener ({
         continuation.resume(cameraProviderFeature.get())
     }, ContextCompat.getMainExecutor(this))
-
 }
-
 private fun captuePhoto(imageCapture: ImageCapture, context: Context) {
     val name="MyCamera_${System.currentTimeMillis()}.jpg"
-
     val contentValues= ContentValues().apply{
         put(MediaStore.MediaColumns.DISPLAY_NAME,name)
         put(MediaStore.MediaColumns.MIME_TYPE,"image/jpeg")
         put(MediaStore.MediaColumns.RELATIVE_PATH,"Pictures/MyCamera-Images")
     }
-
     val outputOption= ImageCapture.OutputFileOptions.Builder(
         context.contentResolver,
         MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
         contentValues
     ).build()
-
     imageCapture.takePicture(
         outputOption,
         ContextCompat.getMainExecutor(context),
@@ -178,13 +150,9 @@ private fun captuePhoto(imageCapture: ImageCapture, context: Context) {
             override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
                 Toast.makeText(context,"Image Saved to Gallery",Toast.LENGTH_SHORT).show()
             }
-
             override fun onError(exception: ImageCaptureException) {
                 Toast.makeText(context,"Failed to Save Image: ${exception.message}",Toast.LENGTH_SHORT).show()
             }
-
         }
     )
-
-
 }
