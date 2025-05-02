@@ -12,6 +12,11 @@ import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.video.Quality
+import androidx.camera.video.QualitySelector
+import androidx.camera.video.Recorder
+import androidx.camera.video.Recording
+import androidx.camera.video.VideoCapture
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -27,8 +32,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -89,15 +96,37 @@ fun cameraScreen() {
     val imageCapture= remember {
         ImageCapture.Builder().build()
     }
+    val recorder = remember {
+        Recorder.Builder()
+            .setQualitySelector(QualitySelector.from(Quality.HIGHEST))
+            .build()
+    }
+    val videoCapture = remember { VideoCapture.withOutput(recorder) }
+    var recording: Recording? by remember { mutableStateOf(null) }
+
+    // Mode: photo or video
+    var isVideoMode by remember { mutableStateOf(false) }
+    var isRecording by remember { mutableStateOf(false) }
+
+
     LaunchedEffect(Unit) {
         val cameraProvider=context.getCameraProvider()
         cameraProvider.unbindAll()
-        cameraProvider.bindToLifecycle(
-            lifecycleOwner=lifecycleOwner,
-            cameraSelector=cameraSelector,
-            preview,
-            imageCapture
-        )
+        if (isVideoMode) {
+            cameraProvider.bindToLifecycle(
+                lifecycleOwner,
+                cameraSelector,
+                preview,
+                videoCapture
+            )
+        } else {
+            cameraProvider.bindToLifecycle(
+                lifecycleOwner,
+                cameraSelector,
+                preview,
+                imageCapture
+            )
+        }
         preview.setSurfaceProvider(previewView.surfaceProvider)
     }
     Box(modifier = Modifier.fillMaxSize(),
