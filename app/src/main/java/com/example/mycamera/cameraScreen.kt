@@ -12,16 +12,19 @@ import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.video.MediaStoreOutputOptions
 import androidx.camera.video.Quality
 import androidx.camera.video.QualitySelector
 import androidx.camera.video.Recorder
 import androidx.camera.video.Recording
 import androidx.camera.video.VideoCapture
+import androidx.camera.video.VideoRecordEvent
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -63,7 +66,9 @@ fun permission() {
         contract = ActivityResultContracts.RequestMultiplePermissions(),
         onResult = {
             permission->
-            isGranted.value=permission[android.Manifest.permission.CAMERA]==true
+            isGranted.value = permission[android.Manifest.permission.CAMERA] == true &&
+                    permission[android.Manifest.permission.RECORD_AUDIO] == true
+
         }
     )
     if(isGranted.value){
@@ -109,7 +114,7 @@ fun cameraScreen() {
     var isRecording by remember { mutableStateOf(false) }
 
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(isVideoMode) {
         val cameraProvider=context.getCameraProvider()
         cameraProvider.unbindAll()
         if (isVideoMode) {
@@ -129,28 +134,81 @@ fun cameraScreen() {
         }
         preview.setSurfaceProvider(previewView.surfaceProvider)
     }
-    Box(modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.BottomCenter
-    ){
-        AndroidView(factory = { previewView } , modifier = Modifier.fillMaxSize())
-        Box(
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+        AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
+
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.Black.copy(alpha = 0.7f))
+                .background(Color.Black.copy(alpha = 0.6f))
                 .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Toggle Button
+            Button(onClick = { isVideoMode = !isVideoMode }) {
+                Text(text = if (isVideoMode) "Switch to Photo" else "Switch to Video")
+            }
 
-            contentAlignment = Alignment.Center
-        ){
+            Spacer(modifier = Modifier.padding(8.dp))
+
+            // Action Button
             IconButton(
                 onClick = {
-                    captuePhoto(imageCapture,context)
+                    if (isVideoMode) {
+                        if (!isRecording) {
+                            // Start recording
+                            val name = "VID_${System.currentTimeMillis()}.mp4"
+                            val contentValues = ContentValues().apply {
+                                put(MediaStore.MediaColumns.DISPLAY_NAME, name)
+                                put(MediaStore.MediaColumns.MIME_TYPE, "video/mp4")
+                                put(MediaStore.MediaColumns.RELATIVE_PATH, "Movies/MyCamera-Videos")
+                            }
+
+                            val mediaStoreOutput = MediaStoreOutputOptions.Builder(
+                                context.contentResolver,
+                                MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+                            ).setContentValues(contentValues).build()
+
+                            val hasAudioPermission = ContextCompat.checkSelfPermission(
+                                context,
+                                android.Manifest.permission.RECORD_AUDIO
+                            ) == PackageManager.PERMISSION_GRANTED
+
+                            val pendingRecording = videoCapture.output
+                                .prepareRecording(context, mediaStoreOutput)
+                                .apply {
+                                    if (hasAudioPermission) withAudioEnabled()
+                                }
+
+                            recording = pendingRecording.start(ContextCompat.getMainExecutor(context)) { event ->
+                                when (event) {
+                                    is VideoRecordEvent.Start -> {
+                                        isRecording = true
+                                        Toast.makeText(context, "Recording Started", Toast.LENGTH_SHORT).show()
+                                    }
+
+                                    is VideoRecordEvent.Finalize -> {
+                                        isRecording = false
+                                        Toast.makeText(context, "Saved: ${event.outputResults.outputUri}", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }
+                        } else {
+                            // Stop recording
+                            recording?.stop()
+                            recording = null
+                        }
+                    } else {
+                        captuePhoto(imageCapture, context)
+                    }
                 },
                 modifier = Modifier
-                    .size(50.dp)
-                    .background(color = Color.White, CircleShape)
-                    .padding(8.dp)
-                    .background(color = Color.Red, CircleShape)
-            ) { }
+                    .size(60.dp)
+                    .background(
+                        if (isVideoMode && isRecording) Color.Red else Color.White,
+                        shape = CircleShape
+                    )
+            ) {}
         }
     }
 }
