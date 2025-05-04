@@ -132,6 +132,7 @@ fun cameraScreen() {
                 imageCapture
             )
         }
+        
         preview.setSurfaceProvider(previewView.surfaceProvider)
     }
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
